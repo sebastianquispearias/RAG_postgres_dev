@@ -228,7 +228,7 @@ packaging==24.2
     #   opentelemetry-instrumentation
     #   opentelemetry-instrumentation-flask
     #   opentelemetry-instrumentation-sqlalchemy
-pgvector==0.3.6
+pgvector==0.4.1
     # via fastapi-app (pyproject.toml)
 portalocker==2.10.1
     # via msal-extensions
