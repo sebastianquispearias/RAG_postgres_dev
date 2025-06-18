@@ -4,6 +4,7 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy import Index
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from datetime import date
 
 # Define the models
 class Base(DeclarativeBase):
@@ -39,6 +40,23 @@ class Item(Base):
         return f"Name: {self.name} Description: {self.description} Type: {self.type}"
 
 
+class Abastecimento(Base):
+    __tablename__ = "abastecimentos"
+
+    numero_veiculo: Mapped[str]  = mapped_column("Numero Veiculo", primary_key=True)
+    placa:            Mapped[str]  = mapped_column("Placa")
+    tipo_de_veiculo:  Mapped[str]  = mapped_column("Tipo de Veiculo")
+    data:             Mapped[date] = mapped_column("Data")
+    km_percorrido:    Mapped[float]= mapped_column("Km Percorrido")
+    diesel:           Mapped[float]= mapped_column("Diesel")
+    custo_combustivel:Mapped[float]= mapped_column("Custo Combustivel")
+    embedding:        Mapped[Vector]= mapped_column(Vector(1536), nullable=True)
+
+    def to_str_for_rag(self):
+        return (
+            f"Vehículo {self.numero_veiculo} placa {self.placa} "
+            f"el {self.data}, cargó {self.diesel}L por {self.custo_combustivel}"
+        )
 """
 **Define HNSW index to support vector similarity search**
 

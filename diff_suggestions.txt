@@ -1,0 +1,316 @@
+diff --git a/locustfile.py b/locustfile.py
+index c1c91f5b..dc638373 100644
+--- a/locustfile.py
++++ b/locustfile.py
+@@ -17,7 +17,11 @@ def ask_question(self):
+                 "messages": [
+                     {
+                         "content": random.choice(
+-                            ["Best shoe for hiking?", "Climbing shoe cheaper than $30?", "Waterproof camping gear?"]
++                            [
++                                "Summarize GitHub services shown in Python sessions",
++                                "Livestreams about Copilot",
++                                "In-person sessions about GitHub Actions",
++                            ]
+                         ),
+                         "role": "user",
+                     }
+diff --git a/src/backend/fastapi_app/api_models.py b/src/backend/fastapi_app/api_models.py
+index 616275c2..46c4a99d 100644
+--- a/src/backend/fastapi_app/api_models.py
++++ b/src/backend/fastapi_app/api_models.py
+@@ -47,7 +47,7 @@ class ThoughtStep(BaseModel):
+ 
+ 
+ class RAGContext(BaseModel):
+-    data_points: dict[int, dict[str, Any]]
++    data_points: dict[str, dict[str, Any]]
+     thoughts: list[ThoughtStep]
+     followup_questions: list[str] | None = None
+ 
+@@ -65,12 +65,15 @@ class RetrievalResponseDelta(BaseModel):
+ 
+ 
+ class ItemPublic(BaseModel):
+-    id: int
+-    type: str
+-    brand: str
+-    name: str
++    # This should match postgres_models.py
++    id: str
++    title: str
+     description: str
+-    price: float
++    speakers: list[str]
++    tracks: list[str]
++    day: str
++    time: str
++    mode: str
+ 
+ 
+ class ItemWithDistance(ItemPublic):
+diff --git a/src/backend/fastapi_app/postgres_models.py b/src/backend/fastapi_app/postgres_models.py
+index 9e2a233c..433c9384 100644
+--- a/src/backend/fastapi_app/postgres_models.py
++++ b/src/backend/fastapi_app/postgres_models.py
+@@ -1,30 +1,34 @@
+ from __future__ import annotations
+ 
+-from dataclasses import asdict
+-
+ from pgvector.sqlalchemy import Vector
+-from sqlalchemy import Index
+-from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, mapped_column
++from sqlalchemy import Index, String
++from sqlalchemy.dialects.postgresql import ARRAY
++from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+ 
+ 
+ # Define the models
+-class Base(DeclarativeBase, MappedAsDataclass):
++class Base(DeclarativeBase):
+     pass
+ 
+ 
+ class Item(Base):
+-    __tablename__ = "items"
+-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+-    type: Mapped[str] = mapped_column()
+-    brand: Mapped[str] = mapped_column()
+-    name: Mapped[str] = mapped_column()
++    __tablename__ = "sessions"
++    # An ID column should always be defined, but it can be int or string
++    id: Mapped[str] = mapped_column(primary_key=True)
++    # Schema specific:
++    title: Mapped[str] = mapped_column()
+     description: Mapped[str] = mapped_column()
+-    price: Mapped[float] = mapped_column()
+-    embedding_ada002: Mapped[Vector] = mapped_column(Vector(1536))  # ada-002
+-    embedding_nomic: Mapped[Vector] = mapped_column(Vector(768))  # nomic-embed-text
++    speakers: Mapped[list[str]] = mapped_column(ARRAY(String))
++    tracks: Mapped[list[str]] = mapped_column(ARRAY(String))
++    day: Mapped[str] = mapped_column()
++    time: Mapped[str] = mapped_column()
++    mode: Mapped[str] = mapped_column()
++    # Embeddings for different models:
++    embedding_ada002: Mapped[Vector] = mapped_column(Vector(1536), nullable=True)  # ada-002
++    embedding_nomic: Mapped[Vector] = mapped_column(Vector(768), nullable=True)  # nomic-embed-text
+ 
+     def to_dict(self, include_embedding: bool = False):
+-        model_dict = asdict(self)
++        model_dict = {column.name: getattr(self, column.name) for column in self.__table__.columns}
+         if include_embedding:
+             model_dict["embedding_ada002"] = model_dict.get("embedding_ada002", [])
+             model_dict["embedding_nomic"] = model_dict.get("embedding_nomic", [])
+@@ -34,15 +38,16 @@ def to_dict(self, include_embedding: bool = False):
+         return model_dict
+ 
+     def to_str_for_rag(self):
+-        return f"Name:{self.name} Description:{self.description} Price:{self.price} Brand:{self.brand} Type:{self.type}"
++        return f"Title:{self.title} Description:{self.description} Speakers:{self.speakers} Tracks:{self.tracks} Day:{self.day} Time:{self.time} Mode:{self.mode}"  # noqa
+ 
+     def to_str_for_embedding(self):
+-        return f"Name: {self.name} Description: {self.description} Type: {self.type}"
++        return f"Name: {self.title} Description: {self.description} Tracks: {self.tracks} Day: {self.day} Mode: {self.mode}"  # noqa
+ 
+ 
+ # Define HNSW index to support vector similarity search through the vector_cosine_ops access method (cosine distance).
+ index_ada002 = Index(
+-    "hnsw_index_for_innerproduct_item_embedding_ada002",
++    # TODO: generate based off table name
++    "hnsw_index_for_innerproduct_session_embedding_ada002",
+     Item.embedding_ada002,
+     postgresql_using="hnsw",
+     postgresql_with={"m": 16, "ef_construction": 64},
+@@ -50,7 +55,7 @@ def to_str_for_embedding(self):
+ )
+ 
+ index_nomic = Index(
+-    "hnsw_index_for_innerproduct_item_embedding_nomic",
++    "hnsw_index_for_innerproduct_session_embedding_nomic",
+     Item.embedding_nomic,
+     postgresql_using="hnsw",
+     postgresql_with={"m": 16, "ef_construction": 64},
+diff --git a/src/backend/fastapi_app/prompts/answer.txt b/src/backend/fastapi_app/prompts/answer.txt
+index 9d8878b1..f14131e7 100644
+--- a/src/backend/fastapi_app/prompts/answer.txt
++++ b/src/backend/fastapi_app/prompts/answer.txt
+@@ -1,9 +1,8 @@
+-Assistant helps customers with questions about products.
+-Respond as if you are a salesperson helping a customer in a store. Do NOT respond with tables.
+-Answer ONLY with the product details listed in the products.
++Assistant helps customers with questions about GitHub Universe conference session.
++Respond as if you are a helpful chatbot helping a user on a conference website, in a personable and friendly tone.
++Answer ONLY based on the provided sources.
+ If there isn't enough information below, say you don't know.
+ Do not generate answers that don't use the sources below.
+-Each product has an ID in brackets followed by colon and the product details.
+-Always include the product ID for each product you use in the response.
+-Use square brackets to reference the source, for example [52].
+-Don't combine citations, list each product separately, for example [27][51].
+\ No newline at end of file
++Each session has an ID in brackets followed by colon and the session details.
++At the end of your answer, include any referenced session IDs in square brackets,
++for example [session-1724855655436001ip2k-1724879694174001ZaSd].
+diff --git a/src/backend/fastapi_app/prompts/query.txt b/src/backend/fastapi_app/prompts/query.txt
+index 672b03be..0a57dc09 100644
+--- a/src/backend/fastapi_app/prompts/query.txt
++++ b/src/backend/fastapi_app/prompts/query.txt
+@@ -1,6 +1,7 @@
+ Below is a history of the conversation so far, and a new question asked by the user that needs to be answered by searching database rows.
+-You have access to an Azure PostgreSQL database with an items table that has columns for title, description, brand, price, and type.
++You have access to an Azure PostgreSQL database with a table about GitHub Universe conference sessions,
++that has columns for title, description, tracks, speakers, day, time, and mode.
+ Generate a search query based on the conversation and the new question.
+ If the question is not in English, translate the question to English before generating the search query.
+ If you cannot generate a search query, return the original user question.
+-DO NOT return anything besides the query.
+\ No newline at end of file
++DO NOT return anything besides the query.
+diff --git a/src/backend/fastapi_app/prompts/query_fewshots.json b/src/backend/fastapi_app/prompts/query_fewshots.json
+index d5a026f2..e49134cf 100644
+--- a/src/backend/fastapi_app/prompts/query_fewshots.json
++++ b/src/backend/fastapi_app/prompts/query_fewshots.json
+@@ -1,11 +1,11 @@
+ [
+-    {"role": "user", "content": "good options for climbing gear that can be used outside?"},
++    {"role": "user", "content": "any sessions about python for AI apps?"},
+     {"role": "assistant", "tool_calls": [
+         {
+             "id": "call_abc123",
+             "type": "function",
+             "function": {
+-                "arguments": "{\"search_query\":\"climbing gear outside\"}",
++                "arguments": "{\"search_query\":\"python AI\"}",
+                 "name": "search_database"
+             }
+         }
+@@ -13,15 +13,15 @@
+     {
+         "role": "tool",
+         "tool_call_id": "call_abc123",
+-        "content": "Search results for climbing gear that can be used outside: ..."
++        "content": "Search results for Python AI app sessions: ..."
+     },
+-    {"role": "user", "content": "are there any shoes less than $50?"},
++    {"role": "user", "content": "are there any recorded sessions about Java?"},
+     {"role": "assistant", "tool_calls": [
+         {
+             "id": "call_abc456",
+             "type": "function",
+             "function": {
+-                "arguments": "{\"search_query\":\"shoes\",\"price_filter\":{\"comparison_operator\":\"<\",\"value\":50}}",
++                "arguments": "{\"search_query\":\"Java\",\"mode_filter\":{\"comparison_operator\":\"=\",\"value\":\"Recorded\"}}",
+                 "name": "search_database"
+             }
+         }
+@@ -29,6 +29,6 @@
+     {
+         "role": "tool",
+         "tool_call_id": "call_abc456",
+-        "content": "Search results for shoes cheaper than 50: ..."
++        "content": "Search results for Java sessions: ..."
+     }
+ ]
+diff --git a/src/backend/fastapi_app/query_rewriter.py b/src/backend/fastapi_app/query_rewriter.py
+index 6274ca50..5654e81d 100644
+--- a/src/backend/fastapi_app/query_rewriter.py
++++ b/src/backend/fastapi_app/query_rewriter.py
+@@ -12,31 +12,17 @@ def build_search_function() -> list[ChatCompletionToolParam]:
+             "type": "function",
+             "function": {
+                 "name": "search_database",
+-                "description": "Search PostgreSQL database for relevant products based on user query",
++                "description": "Search PostgreSQL database for relevant conference sessions based on user query",
+                 "parameters": {
+                     "type": "object",
+                     "properties": {
+                         "search_query": {
+                             "type": "string",
+-                            "description": "Query string to use for full text search, e.g. 'red shoes'",
++                            "description": "Query string to use for full text search, e.g. 'python AI'",
+                         },
+-                        "price_filter": {
++                        "mode_filter": {
+                             "type": "object",
+-                            "description": "Filter search results based on price of the product",
+-                            "properties": {
+-                                "comparison_operator": {
+-                                    "type": "string",
+-                                    "description": "Operator to compare the column value, either '>', '<', '>=', '<=', '='",  # noqa
+-                                },
+-                                "value": {
+-                                    "type": "number",
+-                                    "description": "Value to compare against, e.g. 30",
+-                                },
+-                            },
+-                        },
+-                        "brand_filter": {
+-                            "type": "object",
+-                            "description": "Filter search results based on brand of the product",
++                            "description": "Filter search results based on mode of the session",
+                             "properties": {
+                                 "comparison_operator": {
+                                     "type": "string",
+@@ -44,7 +30,7 @@ def build_search_function() -> list[ChatCompletionToolParam]:
+                                 },
+                                 "value": {
+                                     "type": "string",
+-                                    "description": "Value to compare against, e.g. AirStrider",
++                                    "description": "Possible values are 'In-person', 'Livestream', or 'Recorded'.",
+                                 },
+                             },
+                         },
+@@ -69,22 +55,13 @@ def extract_search_arguments(original_user_query: str, chat_completion: ChatComp
+                 arg = json.loads(function.arguments)
+                 # Even though its required, search_query is not always specified
+                 search_query = arg.get("search_query", original_user_query)
+-                if "price_filter" in arg and arg["price_filter"]:
+-                    price_filter = arg["price_filter"]
+-                    filters.append(
+-                        {
+-                            "column": "price",
+-                            "comparison_operator": price_filter["comparison_operator"],
+-                            "value": price_filter["value"],
+-                        }
+-                    )
+-                if "brand_filter" in arg and arg["brand_filter"]:
+-                    brand_filter = arg["brand_filter"]
++                if "mode_filter" in arg and arg["mode_filter"]:
++                    mode_filter = arg["mode_filter"]
+                     filters.append(
+                         {
+-                            "column": "brand",
+-                            "comparison_operator": brand_filter["comparison_operator"],
+-                            "value": brand_filter["value"],
++                            "column": "mode",
++                            "comparison_operator": mode_filter["comparison_operator"],
++                            "value": mode_filter["value"],
+                         }
+                     )
+     elif query_text := response_message.content:
+diff --git a/src/backend/fastapi_app/seed_data.json b/src/backend/fastapi_app/seed_data.json
+index fbc6c23e..743ff0d5 100644
+--- a/src/backend/fastapi_app/seed_data.json
++++ b/src/backend/fastapi_app/seed_data.json
+@@ -1,233918 +1,199792 @@
+ [
+     {
+-        "id": 1,
+-        "type": "Footwear",
+-        "brand": "Daybird",
+-        "name": "Wanderer Black Hiking Boots",
+-        "description": "Daybird's Wanderer Hiking Boots in sleek black are perfect for all your outdoor adventures. These boots are made with a waterproof leather upper and a durable rubber sole for superior traction. With their cushioned insole and padded collar, these boots will keep you comfortable all day long.",
+-        "price": 109.99,
+-        "embedding_ada002": [
+-            -0.010269113,
+-            -0.01673832,
+-            0.0025070684,
+-            -0.009927924,
+-            0.0075596725,
+-            0.0073790434,
+-            -0.0090849865,
+-            -0.05860419,
+-            0.013500371,
+-            -0.050522696,
+-            -0.022866337,

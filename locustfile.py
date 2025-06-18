@@ -17,7 +17,7 @@ class ChatUser(HttpUser):
                 "messages": [
                     {
                         "content": random.choice(
-                            ["Best shoe for hiking?", "Climbing shoe cheaper than $30?", "Waterproof camping gear?"]
+                            ["Cómo evolucionó el consumo de diesel en enero de 2025?", "Hubo un pico en Custo Combustivel durante febrero?", "Resume el abastecimiento del vehículo 103001 en marzo?","¿Cuál fue el costo promedio de combustible el mes pasado?"]
                         ),
                         "role": "user",
                     }

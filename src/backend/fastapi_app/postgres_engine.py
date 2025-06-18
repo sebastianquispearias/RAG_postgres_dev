@@ -18,7 +18,7 @@ async def create_postgres_engine(*, host, username, database, password, sslmode,
         return token.token
 
     token_based_password = False
-    if host.endswith(".database.azure.com"):
+    if False :#host.endswith(".database.azure.com")
         token_based_password = True
         logger.info("Authenticating to Azure Database for PostgreSQL using Azure Identity...")
         if azure_credential is None:
