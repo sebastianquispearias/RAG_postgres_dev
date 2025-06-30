@@ -151,3 +151,10 @@ PS C:\Users\User\Desktop\rag-postgres-openai-python> cd src/frontend
 PS C:\Users\User\Desktop\rag-postgres-openai-python\src\frontend> npm run dev
 # → Abrir http://127.0.0.1:5173/ en tu navegador
 
+
+
+1-Actualizar el Modelo (postgres_models.py):
+2-Adaptar los Prompts (prompts/):
+3-Modificar la Lógica de Búsqueda (query_rewriter.py):
+4-Generar los Embeddings (Nuevo script o adaptación):
+
