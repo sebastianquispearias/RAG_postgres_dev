@@ -71,22 +71,42 @@ export const Answer = ({
                             <span className={styles.citationLearnMore}>References:</span>
                         </Stack>
                     </Stack>
+                    // 
                     {!isReferencesCollapsed && (
                         <ol>
                             {parsedAnswer.citations.map((rowId, ind) => {
-                                const citation = answer.context.data_points[rowId];
-                                if (!citation) return null;
+                                // Obtenemos la fuente de datos. 'as any' nos da flexibilidad.
+                                const source = answer.context.data_points[rowId] as any;
+                                if (!source) return null;
+
+                                // Comprobamos si la fuente es un Vehículo.
+                                // La forma más segura es ver si tiene una propiedad única de los vehículos, como 'fabricante'.
+                                const isVeiculo = source.hasOwnProperty('fabricante');
+
                                 return (
                                     <li key={rowId}>
-                                        <h4>{citation.name}</h4>
-                                        <p className={styles.referenceMetadata}>Brand: {citation.brand}</p>
-                                        <p className={styles.referenceMetadata}>Price: {citation.price}</p>
-                                        <p>{citation.description}</p>
+                                        {isVeiculo ? (
+                                            // Si es un Vehículo, mostramos estos campos:
+                                            <>
+                                                <h4>Placa: {source.placa || "N/A"}</h4>
+                                                <p className={styles.referenceMetadata}>Fabricante: {source.fabricante}</p>
+                                                <p className={styles.referenceMetadata}>Año: {source.ano}</p>
+                                                <p className={styles.referenceMetadata}>Tipo: {source.tipo_onibus}</p>
+                                            </>
+                                        ) : (
+                                            // Si no, asumimos que es un Abastecimiento y mostramos estos otros:
+                                            <>
+                                                <h4>Abastecimiento (Placa: {source.placa || "N/A"})</h4>
+                                                <p className={styles.referenceMetadata}>Fecha: {source.data}</p>
+                                                <p className={styles.referenceMetadata}>Costo: {source.custo_combustivel}</p>
+                                                <p className={styles.referenceMetadata}>Eficiencia: {source.km_diesel} km/l</p>
+                                            </>
+                                        )}
                                     </li>
                                 );
                             })}
                         </ol>
-                    )}
+                    )}     //                 
                 </Stack.Item>
             )}
 

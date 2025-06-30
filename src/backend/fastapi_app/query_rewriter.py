@@ -5,48 +5,54 @@ from openai.types.chat import (
     ChatCompletionToolParam,
 )
 
-
 def build_search_function() -> list[ChatCompletionToolParam]:
+    """
+    This function defines the 'search_database' tool that the AI agent can use.
+    It specifies the parameters the agent can use to filter the search.
+    This version is adapted for the 'veiculos' and 'abastecimento' tables.
+    """
     return [
         {
             "type": "function",
             "function": {
                 "name": "search_database",
-                "description": "Search PostgreSQL database for relevant products based on user query",
+                "description": "Searches the company's vehicle and fueling database.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "search_query": {
                             "type": "string",
-                            "description": "Query string to use for full text search, e.g. 'red shoes'",
+                            "description": "A semantic search query. For example: 'efficient urban bus'",
                         },
-                        "price_filter": {
+                        "id_veiculo_filter": {
+                            "type": "string",
+                            "description": "Filter by the exact vehicle ID (id_veiculo).",
+                        },
+                        "placa_filter": {
+                            "type": "string",
+                            "description": "Filter by the exact vehicle license plate (placa).",
+                        },
+                        "ano_filter": {
                             "type": "object",
-                            "description": "Filter search results based on price of the product",
+                            "description": "Filter results by the vehicle's manufacturing year.",
                             "properties": {
                                 "comparison_operator": {
                                     "type": "string",
-                                    "description": "Operator to compare the column value, either '>', '<', '>=', '<=', '='",  # noqa
+                                    "description": "Operator for comparison, can be '>', '<', '>=', '<=', '='.",
                                 },
                                 "value": {
                                     "type": "number",
-                                    "description": "Value to compare against, e.g. 30",
+                                    "description": "The year to compare against, e.g., 2020.",
                                 },
                             },
                         },
-                        "brand_filter": {
-                            "type": "object",
-                            "description": "Filter search results based on brand of the product",
-                            "properties": {
-                                "comparison_operator": {
-                                    "type": "string",
-                                    "description": "Operator to compare the column value, either '=' or '!='",
-                                },
-                                "value": {
-                                    "type": "string",
-                                    "description": "Value to compare against, e.g. AirStrider",
-                                },
-                            },
+                        "fabricante_filter": {
+                            "type": "string",
+                            "description": "Filter results by the vehicle manufacturer, e.g., 'Volvo', 'Mercedes-Benz'.",
+                        },
+                        "tipo_onibus_filter": {
+                            "type": "string",
+                            "description": "Filter results by the bus type, e.g., 'Urbano', 'Rodoviário'.",
                         },
                     },
                     "required": ["search_query"],
@@ -54,7 +60,6 @@ def build_search_function() -> list[ChatCompletionToolParam]:
             },
         }
     ]
-
 
 def extract_search_arguments(original_user_query: str, chat_completion: ChatCompletion):
     response_message = chat_completion.choices[0].message
@@ -69,22 +74,26 @@ def extract_search_arguments(original_user_query: str, chat_completion: ChatComp
                 arg = json.loads(function.arguments)
                 # Even though its required, search_query is not always specified
                 search_query = arg.get("search_query", original_user_query)
-                if "price_filter" in arg and arg["price_filter"] and isinstance(arg["price_filter"], dict):
-                    price_filter = arg["price_filter"]
+
+                if "id_veiculo_filter" in arg and arg["id_veiculo_filter"]:
+                    filters.append({"column": "id_veiculo", "operator": "=", "value": arg["id_veiculo_filter"]})
+
+                if "placa_filter" in arg and arg["placa_filter"]:
+                    filters.append({"column": "placa", "operator": "=", "value": arg["placa_filter"]})
+
+                if "fabricante_filter" in arg and arg["fabricante_filter"]:
+                    filters.append({"column": "fabricante", "operator": "=", "value": arg["fabricante_filter"]})
+
+                if "tipo_onibus_filter" in arg and arg["tipo_onibus_filter"]:
+                    filters.append({"column": "tipo_onibus", "operator": "=", "value": arg["tipo_onibus_filter"]})
+
+                if "ano_filter" in arg and arg["ano_filter"] and isinstance(arg["ano_filter"], dict):
+                    ano_filter_args = arg["ano_filter"]
                     filters.append(
                         {
-                            "column": "price",
-                            "comparison_operator": price_filter["comparison_operator"],
-                            "value": price_filter["value"],
-                        }
-                    )
-                if "brand_filter" in arg and arg["brand_filter"] and isinstance(arg["brand_filter"], dict):
-                    brand_filter = arg["brand_filter"]
-                    filters.append(
-                        {
-                            "column": "brand",
-                            "comparison_operator": brand_filter["comparison_operator"],
-                            "value": brand_filter["value"],
+                            "column": "ano",
+                            "operator": ano_filter_args["comparison_operator"],
+                            "value": ano_filter_args["value"],
                         }
                     )
     elif query_text := response_message.content:

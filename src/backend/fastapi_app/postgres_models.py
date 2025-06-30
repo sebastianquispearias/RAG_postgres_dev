@@ -1,86 +1,89 @@
 from __future__ import annotations
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Index
+from sqlalchemy import (Index,Integer,String,Date,Numeric,PrimaryKeyConstraint)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from datetime import date
+from decimal import Decimal
 
-# Define the models
 class Base(DeclarativeBase):
     pass
 
+class Veiculo(Base):
+    __tablename__ = "veiculos"
 
-class Item(Base):
-    __tablename__ = "items"
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    type: Mapped[str] = mapped_column()
-    brand: Mapped[str] = mapped_column()
-    name: Mapped[str] = mapped_column()
-    description: Mapped[str] = mapped_column()
-    price: Mapped[float] = mapped_column()
-    # Embeddings for different models:
-    embedding_3l: Mapped[Vector] = mapped_column(Vector(1024), nullable=True)  # text-embedding-3-large
-    embedding_nomic: Mapped[Vector] = mapped_column(Vector(768), nullable=True)  # nomic-embed-text
+    id_veiculo = mapped_column(String, primary_key=True)
+    garagem = mapped_column(String, nullable=True)
+    placa = mapped_column(String, nullable=True)
+    ano = mapped_column(Integer, nullable=True)
+    tipo_onibus = mapped_column(String, nullable=True)
+    fabricante = mapped_column(String, nullable=True)
+    modelo_chassi = mapped_column(String, nullable=True)
 
-    def to_dict(self, include_embedding: bool = False):
-        model_dict = {column.name: getattr(self, column.name) for column in self.__table__.columns}
-        if include_embedding:
-            model_dict["embedding_3l"] = model_dict.get("embedding_3l", [])
-            model_dict["embedding_nomic"] = model_dict.get("embedding_nomic", [])
-        else:
-            del model_dict["embedding_3l"]
-            del model_dict["embedding_nomic"]
-        return model_dict
+    embedding_main = mapped_column(Vector(1024), nullable=True)
+    embedding_alt = mapped_column(Vector(768), nullable=True)
 
-    def to_str_for_rag(self):
-        return f"Name:{self.name} Description:{self.description} Price:{self.price} Brand:{self.brand} Type:{self.type}"
+    def to_str_for_embedding(self) -> str:
+        """
+        FOR SEARCH (The Archivist):
+        Text rich in keywords and concepts to find this row.
+        """
+        return f"Vehicle type {self.tipo_onibus} from brand {self.fabricante} {self.modelo_chassi} from year {self.ano}."
 
-    def to_str_for_embedding(self):
-        return f"Name: {self.name} Description: {self.description} Type: {self.type}"
+    def to_str_for_rag(self) -> str:
+        """
+        FOR THE RESPONSE (The Final Redactor):
+        Clean and clear text for the LLM to use as a source of truth.
+        """
+        return (f"Vehicle ID: {self.id_veiculo}, Plate: {self.placa}, Manufacturer: {self.fabricante}, "
+                f"Model: {self.modelo_chassi}, Year: {self.ano}, Type: {self.tipo_onibus}, Garage: {self.garagem}.")
 
 
 class Abastecimento(Base):
-    __tablename__ = "abastecimentos"
+    __tablename__ = "abastecimento"
 
-    numero_veiculo: Mapped[str]  = mapped_column("Numero Veiculo", primary_key=True)
-    placa:            Mapped[str]  = mapped_column("Placa")
-    tipo_de_veiculo:  Mapped[str]  = mapped_column("Tipo de Veiculo")
-    data:             Mapped[date] = mapped_column("Data")
-    km_percorrido:    Mapped[float]= mapped_column("Km Percorrido")
-    diesel:           Mapped[float]= mapped_column("Diesel")
-    custo_combustivel:Mapped[float]= mapped_column("Custo Combustivel")
-    embedding:        Mapped[Vector]= mapped_column(Vector(1536), nullable=True)
+    id_veiculo = mapped_column(String)
+    placa = mapped_column(String)
+    km_percorrido = mapped_column(Integer)
+    diesel = mapped_column(Numeric)
+    km_diesel = mapped_column(Numeric)
+    data = mapped_column(Date)
+    custo_combustivel = mapped_column(Numeric)
+    preco_combustivel = mapped_column(Numeric)
 
-    def to_str_for_rag(self):
-        return (
-            f"Vehículo {self.numero_veiculo} placa {self.placa} "
-            f"el {self.data}, cargó {self.diesel}L por {self.custo_combustivel}"
-        )
-"""
-**Define HNSW index to support vector similarity search**
+    embedding_main = mapped_column(Vector(1024), nullable=True)
+    embedding_alt = mapped_column(Vector(768), nullable=True)
 
-We use the vector_cosine_ops access method (cosine distance)
- since it works for both normalized and non-normalized vector embeddings
-If you know your embeddings are normalized,
- you can switch to inner product for potentially better performance.
-The index operator should match the operator used in queries.
-"""
+    # Composite primary 
+    __table_args__ = (
+        PrimaryKeyConstraint('id_veiculo', 'data', 'km_percorrido', 'diesel', name='abastecimento_pk'),
+    )
 
-table_name = Item.__tablename__
+    def to_str_for_embedding(self) -> str:
+            """
+            FOR SEARCH (The Archivist):
+            Describes the event with potential keywords like "anomaly", "high cost".
+            """
+            anomaly_text = ""
+            # CORRECCIÓN: Comparamos Decimal con Decimal
+            if self.km_diesel is not None and self.km_diesel < Decimal('1.0'):
+                anomaly_text += " Potential low fuel efficiency anomaly."
+            # CORRECCIÓN: Comparamos Decimal con Decimal
+            if self.custo_combustivel is not None and self.custo_combustivel > Decimal('1000'):
+                anomaly_text += " High total fueling cost."
+            return f"Refueling record for vehicle plate {self.placa} on {self.data}. Efficiency: {self.km_diesel} km/l.{anomaly_text}"
+    def to_str_for_rag(self) -> str:
+        """
+        FOR THE RESPONSE (The Final Redactor):
+        Presents the event data clearly and directly.
+        """
+        return (f"Record from {self.data} for plate {self.placa}: {self.diesel} liters of diesel "
+                f"cost {self.custo_combustivel}. The efficiency was {self.km_diesel} km/l.")
 
-index_3l = Index(
-    f"hnsw_index_for_cosine_{table_name}_embedding_3l",
-    Item.embedding_3l,
-    postgresql_using="hnsw",
-    postgresql_with={"m": 16, "ef_construction": 64},
-    postgresql_ops={"embedding_3l": "vector_cosine_ops"},
-)
+# Indexes 
+index_veiculos_main = Index("hnsw_veiculos_main", Veiculo.embedding_main, postgresql_using="hnsw", postgresql_with={"m": 16, "ef_construction": 64}, postgresql_ops={"embedding_main": "vector_cosine_ops"})
+index_veiculos_alt = Index("hnsw_veiculos_alt", Veiculo.embedding_alt, postgresql_using="hnsw", postgresql_with={"m": 16, "ef_construction": 64}, postgresql_ops={"embedding_alt": "vector_cosine_ops"})
 
-index_nomic = Index(
-    f"hnsw_index_for_cosine_{table_name}_embedding_nomic",
-    Item.embedding_nomic,
-    postgresql_using="hnsw",
-    postgresql_with={"m": 16, "ef_construction": 64},
-    postgresql_ops={"embedding_nomic": "vector_cosine_ops"},
-)
+index_abastecimento_main = Index("hnsw_abastecimento_main", Abastecimento.embedding_main, postgresql_using="hnsw", postgresql_with={"m": 16, "ef_construction": 64}, postgresql_ops={"embedding_main": "vector_cosine_ops"})
+index_abastecimento_alt = Index("hnsw_abastecimento_alt", Abastecimento.embedding_alt, postgresql_using="hnsw", postgresql_with={"m": 16, "ef_construction": 64}, postgresql_ops={"embedding_alt": "vector_cosine_ops"})

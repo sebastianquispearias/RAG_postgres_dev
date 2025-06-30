@@ -1,6 +1,6 @@
 from enum import Enum
-from typing import Any, Optional
-
+from typing import Any, Optional, List
+from datetime import date
 from openai.types.responses import ResponseInputItemParam
 from pydantic import BaseModel, Field
 
@@ -125,3 +125,44 @@ class SearchResults(BaseModel):
 
     filters: list[Filter]
     """List of filters applied to the search results"""
+    ############################################################
+
+class AnoFilter(BaseModel):
+    comparison_operator: str = Field(description="The operator for price comparison ('>', '<', '>=', '<=', '=')")
+    value: int
+
+class SearchRequest(BaseModel):
+    search_query: str
+    id_veiculo_filter: str | None = None
+    placa_filter: str | None = None
+    fabricante_filter: str | None = None
+    tipo_onibus_filter: str | None = None
+    ano_filter: AnoFilter | None = None
+
+# --- Modelos para la Respuesta al Usuario ---
+
+class VeiculoPublic(BaseModel):
+    id_veiculo: str
+    garagem: str | None = None
+    placa: str | None = None
+    ano: int | None = None
+    tipo_onibus: str | None = None
+    fabricante: str | None = None
+    modelo_chassi: str | None = None
+
+    class Config:
+        from_attributes = True
+
+class AbastecimentoPublic(BaseModel):
+    id_veiculo: str
+    placa: str | None = None
+    data: date | None = None
+    custo_combustivel: float | None = None
+    km_diesel: float | None = None
+
+    class Config:
+        from_attributes = True
+
+class ChatResponse(BaseModel):
+    answer: str
+    sources: List[VeiculoPublic | AbastecimentoPublic]

@@ -1,0 +1,191 @@
+1. Actualizar el esquema de la base de datos en el código
+Primero, necesitas reflejar la estructura de tus tablas de la base de datos en los modelos de SQLAlchemy que usa la aplicación. El modelo original se llama Item y está en src/backend/fastapi_app/postgres_models.py. Deberás cambiarlo para que coincida con tus tablas. Empecemos con la tabla veiculos.
+
+Archivo a modificar: src/backend/fastapi_app/postgres_models.py
+
+Instrucciones:
+
+Reemplaza la clase Item con clases que representen tus tablas. Aquí tienes un ejemplo para tus tablas. Nota que he renombrado el embedding para que sea más genérico y he añadido un ejemplo de cómo podrías definir la tabla abastecimento y una relación entre ellas (esto es opcional y depende de cómo quieras consultar los datos).
+
+Python
+
+from __future__ import annotations
+
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import (
+    ARRAY,
+    BigInteger,
+    Boolean,
+    Date,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+# Define the models
+class Base(DeclarativeBase):
+    pass
+
+
+class Veiculo(Base):
+    __tablename__ = "veiculos"
+    id_veiculo = mapped_column(String, primary_key=True)
+    garagem = mapped_column(String)
+    placa = mapped_column(String)
+    ano = mapped_column(Integer)
+    tipo_onibus = mapped_column(String)
+    fabricante = mapped_column(String)
+    modelo_chassi = mapped_column(String)
+
+    # Columna para los embeddings vectoriales
+    embedding = mapped_column(Vector(1536), nullable=True)
+
+    # Relación con la tabla de abastecimiento (opcional)
+    abastecimentos = relationship("Abastecimento", back_populates="veiculo")
+
+    def to_dict(self, include_embedding: bool = False):
+        model_dict = {column.name: getattr(self, column.name) for column in self.__table__.columns}
+        if not include_embedding:
+            model_dict.pop("embedding", None)
+        return model_dict
+
+    def to_str_for_rag(self):
+        return f"Veículo ID: {self.id_veiculo}, Placa: {self.placa}, Ano: {self.ano}, Fabricante: {self.fabricante}, Modelo: {self.modelo_chassi}, Tipo: {self.tipo_onibus}, Garagem: {self.garagem}"
+
+    def to_str_for_embedding(self):
+        return f"Veículo ID: {self.id_veiculo}, Placa: {self.placa}, Ano: {self.ano}, Fabricante: {self.fabricante}, Modelo: {self.modelo_chassi}, Tipo: {self.tipo_onibus}"
+
+
+class Abastecimento(Base):
+    __tablename__ = "abastecimento"
+    id = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id_veiculo = mapped_column(String, ForeignKey("veiculos.id_veiculo"))
+    placa = mapped_column(String)
+    km_percorrido = mapped_column(Integer)
+    diesel = mapped_column(Float)
+    km_diesel = mapped_column(Float)
+    data = mapped_column(Date)
+    custo_combustivel = mapped_column(Float)
+    preco_combustivel = mapped_column(Float)
+
+    veiculo = relationship("Veiculo", back_populates="abastecimentos")
+
+
+# Índice para la búsqueda vectorial
+index_embedding = Index(
+    "hnsw_index_veiculos_embedding",
+    Veiculo.embedding,
+    postgresql_using="hnsw",
+    postgresql_with={"m": 16, "ef_construction": 64},
+    postgresql_ops={"embedding": "vector_cosine_ops"},
+)
+2. Adaptar los prompts para tu caso de uso
+Los prompts que guían al modelo de lenguaje están en la carpeta src/backend/fastapi_app/prompts/. Debes modificarlos para que se ajusten a tu base de datos de vehículos.
+
+Archivos a modificar:
+
+src/backend/fastapi_app/prompts/answer.txt
+
+src/backend/fastapi_app/prompts/query.txt
+
+src/backend/fastapi_app/prompts/query_fewshots.json
+
+Instrucciones:
+
+answer.txt: Cambia el texto para que el asistente responda preguntas sobre vehículos.
+
+El asistente ayuda a los usuarios con preguntas sobre la flota de vehículos de la empresa.
+Responde como si fueras un analista de datos de la flota.
+Responde ÚNICAMENTE con los detalles de los vehículos que se encuentran en las fuentes.
+Si no hay suficiente información, indica que no lo sabes.
+No generes respuestas que no utilicen las fuentes proporcionadas.
+Cada vehículo tiene un ID de vehículo. Incluye siempre el ID del vehículo en la respuesta.
+Usa corchetes para hacer referencia a la fuente, por ejemplo [12345].
+query.txt: Adapta la descripción de la tabla.
+
+A continuación se muestra un historial de la conversación y una nueva pregunta del usuario que debe ser respondida buscando en las filas de la base de datos.
+Tienes acceso a una base de datos PostgreSQL de Azure con una tabla de vehículos que tiene columnas para id_veiculo, garagem, placa, ano, tipo_onibus, fabricante y modelo_chassi.
+Genera una consulta de búsqueda basada en la conversación y la nueva pregunta.
+Si la pregunta no está en inglés, tradúcela al inglés antes de generar la consulta de búsqueda.
+NO devuelvas nada más que la consulta.
+
+
+
+
+3. Modificar la lógica de búsqueda y la API
+Ahora, necesitas adaptar la lógica de búsqueda y los modelos de la API para que funcionen con tu nuevo esquema de Veiculo.
+
+Archivos a modificar:
+
+src/backend/fastapi_app/query_rewriter.py
+
+src/backend/fastapi_app/api_models.py
+
+Instrucciones:
+
+query_rewriter.py: En la función build_search_function, cambia los filtros para que coincidan con las columnas de tu tabla veiculos.
+
+Python
+
+# Dentro de la función build_search_function
+"properties": {
+    "search_query": {
+        "type": "string",
+        "description": "Query string para la búsqueda de texto completo, ej. 'volvo 2020'",
+    },
+    "ano_filter": {
+        "type": "object",
+        "description": "Filtra los resultados por el año del vehículo",
+        "properties": {
+            "comparison_operator": {
+                "type": "string",
+                "description": "Operador para comparar, puede ser '>', '<', '>=', '<=', '='",
+            },
+            "value": {
+                "type": "number",
+                "description": "Valor para comparar, ej. 2020",
+            },
+        },
+    },
+    # Agrega más filtros si lo necesitas, por ejemplo, por fabricante
+},
+Luego, en extract_search_arguments, adapta el código para que use los nuevos filtros.
+
+api_models.py: Actualiza los modelos Pydantic que se usan en la API para que coincidan con tu nuevo modelo Veiculo.
+
+Python
+
+class VeiculoPublic(BaseModel):
+    id_veiculo: str
+    garagem: str
+    placa: str
+    ano: int
+    tipo_onibus: str
+    fabricante: str
+    modelo_chassi: str
+
+class VeiculoWithDistance(VeiculoPublic):
+    distance: float
+4. Configuración del entorno
+Asegúrate de que tu archivo .env (una copia de .env.sample) contenga las credenciales correctas para tu base de datos de Azure PostgreSQL.
+
+Archivo a modificar: .env
+
+AZURE_POSTGRES_HOST="zane-linave.postgres.database.azure.com"
+AZURE_POSTGRES_DATABASE="dev_linave"
+AZURE_POSTGRES_USER="<tu_usuario>"
+AZURE_POSTGRES_PASSWORD="<tu_contraseña>"
+# ... y el resto de las variables de entorno para OpenAI, etc.
+5. Carga de datos y generación de embeddings
+Dado que ya tienes los datos en tu base de datos, no necesitas ejecutar los scripts que cargan datos desde CSVs (setup_postgres_seeddata.py). Sin embargo, sí necesitarás:
+
+Crear la extensión pgvector y la tabla veiculos (si no existen) y añadir la columna embedding. Puedes adaptar el script scripts/setup_postgres_database.py.
+
+Generar los embeddings para tus datos existentes. Deberás crear un script que lea los datos de tu tabla veiculos, genere los embeddings usando src/backend/fastapi_app/embeddings.py y los guarde en la columna embedding de cada fila. El script scripts/generate_embeddings.py del repositorio original es un buen punto de partida.
+
+Estos son los cambios principales que necesitas realizar. Te recomiendo ir paso a paso y probar cada cambio a
