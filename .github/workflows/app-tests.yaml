@@ -101,7 +101,7 @@ jobs:
         - name: Setup local database with seed data
           run: |
             python ./src/backend/fastapi_app/setup_postgres_database.py
-            python ./src/backend/fastapi_app/setup_postgres_seeddata.py
+          #  python ./src/backend/fastapi_app/setup_postgres_seeddata.py
 
         - name: Setup node
           uses: actions/setup-node@v4
