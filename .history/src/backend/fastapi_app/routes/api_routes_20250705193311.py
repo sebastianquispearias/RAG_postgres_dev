@@ -1,0 +1,148 @@
+import json
+import logging
+from collections.abc import AsyncGenerator
+from typing import Union
+
+import fastapi
+from fastapi import HTTPException
+from fastapi.responses import StreamingResponse
+from openai import APIError
+from sqlalchemy import select, text
+
+from fastapi_app.api_models import (
+    ChatRequest,
+    ChatResponse,
+    VeiculoPublic,      # <-- Corregido
+    AbastecimentoPublic, # <-- Corregido
+    ErrorResponse
+)
+from fastapi_app.dependencies import ChatClient, CommonDeps, DBSession, EmbeddingsClient
+from fastapi_app.postgres_models import Veiculo, Abastecimento
+from fastapi_app.postgres_searcher import PostgresSearcher
+from fastapi_app.rag_advanced import AdvancedRAGChat
+from fastapi_app.rag_simple import SimpleRAGChat
+
+router = fastapi.APIRouter()
+
+
+ERROR_FILTER = {"error": "Your message contains content that was flagged by the content filter."}
+
+
+async def format_as_ndjson(r: AsyncGenerator[RetrievalResponseDelta, None]) -> AsyncGenerator[str, None]:
+    """
+    Format the response as NDJSON
+    """
+    try:
+        async for event in r:
+            yield event.model_dump_json() + "\n"
+    except Exception as error:
+        if isinstance(error, APIError) and error.code == "content_filter":
+            yield json.dumps(ERROR_FILTER) + "\n"
+        else:
+            logging.exception("Exception while generating response stream: %s", error)
+            yield json.dumps({"error": str(error)}, ensure_ascii=False) + "\n"
+
+
+@router.post("/chat", response_model=Union[RetrievalResponse, ErrorResponse])
+async def chat_handler(
+    context: CommonDeps,
+    database_session: DBSession,
+    openai_embed: EmbeddingsClient,
+    openai_chat: ChatClient,
+    chat_request: ChatRequest,
+):
+    try:
+        searcher = PostgresSearcher(
+            db_session=database_session,
+            openai_embed_client=openai_embed.client,
+            embed_deployment=context.openai_embed_deployment,
+            embed_model=context.openai_embed_model,
+            embed_dimensions=context.openai_embed_dimensions,
+            embedding_column=context.embedding_column,
+        )
+        rag_flow: Union[SimpleRAGChat, AdvancedRAGChat]
+        if chat_request.context.overrides.use_advanced_flow:
+            rag_flow = AdvancedRAGChat(
+                messages=chat_request.messages,
+                overrides=chat_request.context.overrides,
+                searcher=searcher,
+                openai_chat_client=openai_chat.client,
+                chat_model=context.openai_chat_model,
+                chat_deployment=context.openai_chat_deployment,
+            )
+        else:
+            rag_flow = SimpleRAGChat(
+                messages=chat_request.messages,
+                overrides=chat_request.context.overrides,
+                searcher=searcher,
+                openai_chat_client=openai_chat.client,
+                chat_model=context.openai_chat_model,
+                chat_deployment=context.openai_chat_deployment,
+            )
+
+        items, thoughts = await rag_flow.prepare_context()
+        response = await rag_flow.answer(items=items, earlier_thoughts=thoughts)
+        return response
+    except Exception as e:
+        if isinstance(e, APIError) and e.code == "content_filter":
+            return ERROR_FILTER
+        else:
+            logging.exception("Exception while generating response: %s", e)
+            return {"error": str(e)}
+
+
+@router.post("/chat/stream")
+async def chat_stream_handler(
+    context: CommonDeps,
+    database_session: DBSession,
+    openai_embed: EmbeddingsClient,
+    openai_chat: ChatClient,
+    chat_request: ChatRequest,
+):
+    searcher = PostgresSearcher(
+        db_session=database_session,
+        openai_embed_client=openai_embed.client,
+        embed_deployment=context.openai_embed_deployment,
+        embed_model=context.openai_embed_model,
+        embed_dimensions=context.openai_embed_dimensions,
+        embedding_column=context.embedding_column,
+    )
+
+    rag_flow: Union[SimpleRAGChat, AdvancedRAGChat]
+    if chat_request.context.overrides.use_advanced_flow:
+        rag_flow = AdvancedRAGChat(
+            messages=chat_request.messages,
+            overrides=chat_request.context.overrides,
+            searcher=searcher,
+            openai_chat_client=openai_chat.client,
+            chat_model=context.openai_chat_model,
+            chat_deployment=context.openai_chat_deployment,
+        )
+    else:
+        rag_flow = SimpleRAGChat(
+            messages=chat_request.messages,
+            overrides=chat_request.context.overrides,
+            searcher=searcher,
+            openai_chat_client=openai_chat.client,
+            chat_model=context.openai_chat_model,
+            chat_deployment=context.openai_chat_deployment,
+        )
+
+    try:
+        # Intentionally do search we stream down the answer, to avoid using database connections during stream
+        # See https://github.com/tiangolo/fastapi/discussions/11321
+        items, thoughts = await rag_flow.prepare_context()
+        result = rag_flow.answer_stream(items, thoughts)
+        return StreamingResponse(content=format_as_ndjson(result), media_type="application/x-ndjson")
+    except Exception as e:
+        if isinstance(e, APIError) and e.code == "content_filter":
+            return StreamingResponse(
+                content=json.dumps(ERROR_FILTER) + "\n",
+                media_type="application/x-ndjson",
+            )
+        else:
+            logging.exception("Exception while generating response: %s", e)
+            return StreamingResponse(
+                content=json.dumps({"error": str(e)}, ensure_ascii=False) + "\n",
+                media_type="application/x-ndjson",
+            )

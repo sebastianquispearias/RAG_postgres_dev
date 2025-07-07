@@ -17,11 +17,11 @@ DSN = dict(
 )
 
 TABLES = {
-    "abastecimento": ["placa", "data", "custo_combustivel"],
-    "manutencao":     ["placa", "item", "valor"],
-    "quilometragem":  ["placa", "odometro_final"],
-    "retorno_socorro":["placa", "tipo_retorno_socorro"],
-    "veiculos":       ["placa", "fabricante", "modelo_chassi"],
+    "abastecimento": ["placa", "data", "custo_combustivel"]#,
+    #"manutencao":     ["placa", "item", "valor"],
+   # "quilometragem":  ["placa", "odometro_final"],
+   # "retorno_socorro":["placa", "tipo_retorno_socorro"],
+   # "veiculos":       ["placa", "fabricante", "modelo_chassi"],
 }
 
 def make_text(table, row):

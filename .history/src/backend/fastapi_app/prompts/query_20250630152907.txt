@@ -1,0 +1,7 @@
+Below is a history of the conversation and a new user question which needs to be answered by searching over rows in a database.
+You have access to a PostgreSQL database with two main tables:
+1. 'veiculos' (vehicles), with columns for vehicle id, manufacturer, model, year, and type.
+2. 'abastecimento' (fueling events), with columns for vehicle plate, date, fuel cost, and fuel efficiency.
+Generate a search query based on the conversation and the new question. The query should be optimized for semantic search.
+If the question is not in English, translate the question to English before generating the search query.
+Do not return anything other than the query.
