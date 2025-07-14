@@ -201,9 +201,9 @@ const Chat = () => {
                 <div className={styles.chatContainer}>
                     {!lastQuestionRef.current ? (
                         <div className={styles.chatEmptyState}>
-                            <img src={linaveLogo} className={styles.chatLogo} alt="Logo de mi Empresa" />
-                            <h1 className={styles.chatEmptyStateTitle}>Linave chat</h1>
-                            <h2 className={styles.chatEmptyStateSubtitle}>Faz uma pergunta</h2>
+                            <SparkleFilled fontSize={"120px"} primaryFill={"rgb(32, 190, 79)"} aria-hidden="true" aria-label="Chat logo" />
+                            <h1 className={styles.chatEmptyStateTitle}>Product chat</h1>
+                            <h2 className={styles.chatEmptyStateSubtitle}>Ask anything or try an example</h2>
                             <ExampleList onExampleClicked={onExampleClicked} />
                         </div>
                     ) : (

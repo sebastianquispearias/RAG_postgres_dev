@@ -14,7 +14,6 @@ import { AnalysisPanel, AnalysisPanelTabs } from "../../components/AnalysisPanel
 import { SettingsButton } from "../../components/SettingsButton";
 import { ClearChatButton } from "../../components/ClearChatButton";
 import { VectorSettings } from "../../components/VectorSettings";
-import linaveLogo from "../../assets/zane_logo.png";
 
 const Chat = () => {
     const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
@@ -201,9 +200,9 @@ const Chat = () => {
                 <div className={styles.chatContainer}>
                     {!lastQuestionRef.current ? (
                         <div className={styles.chatEmptyState}>
-                            <img src={linaveLogo} className={styles.chatLogo} alt="Logo de mi Empresa" />
-                            <h1 className={styles.chatEmptyStateTitle}>Linave chat</h1>
-                            <h2 className={styles.chatEmptyStateSubtitle}>Faz uma pergunta</h2>
+                            <SparkleFilled fontSize={"120px"} primaryFill={"rgba(115, 118, 225, 1)"} aria-hidden="true" aria-label="Chat logo" />
+                            <h1 className={styles.chatEmptyStateTitle}>Product chat</h1>
+                            <h2 className={styles.chatEmptyStateSubtitle}>Ask anything or try an example</h2>
                             <ExampleList onExampleClicked={onExampleClicked} />
                         </div>
                     ) : (
@@ -267,7 +266,7 @@ const Chat = () => {
                     <div className={styles.chatInput}>
                         <QuestionInput
                             clearOnSend
-                            placeholder="Type a new question (e.g. me mostra os abastecimientos com baixa eficiencia?)"
+                            placeholder="Type a new question (e.g. me mostra los abastecimientos con baja eficiencia?)"
                             disabled={isLoading}
                             onSend={question => makeApiRequest(question)}
                         />

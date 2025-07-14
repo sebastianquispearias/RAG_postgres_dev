@@ -198,14 +198,18 @@ const Chat = () => {
                 <SettingsButton className={styles.commandButton} onClick={() => setIsConfigPanelOpen(!isConfigPanelOpen)} />
             </div>
             <div className={styles.chatRoot}>
-                <div className={styles.chatContainer}>
-                    {!lastQuestionRef.current ? (
-                        <div className={styles.chatEmptyState}>
-                            <img src={linaveLogo} className={styles.chatLogo} alt="Logo de mi Empresa" />
-                            <h1 className={styles.chatEmptyStateTitle}>Linave chat</h1>
-                            <h2 className={styles.chatEmptyStateSubtitle}>Faz uma pergunta</h2>
-                            <ExampleList onExampleClicked={onExampleClicked} />
-                        </div>
+// CÓDIGO CORREGIDO
+<div className={styles.chatEmptyState}>
+    {/* Usamos tu logo en lugar del ícono */}
+    <img src={linaveLogo} className={styles.chatLogo} alt="Linave Logo" />
+
+    {/* Cambiamos los títulos */}
+    <h1 className={styles.chatEmptyStateTitle}>Análisis de Flota Linave</h1>
+    <h2 className={styles.chatEmptyStateSubtitle}>Pregúntale a tus datos de abastecimiento</h2>
+
+    {/* La lista de ejemplos ya la habíamos adaptado, así que se queda igual */}
+    <ExampleList onExampleClicked={onExampleClicked} />
+</div>
                     ) : (
                         <div className={styles.chatMessageStream}>
                             {isStreaming &&

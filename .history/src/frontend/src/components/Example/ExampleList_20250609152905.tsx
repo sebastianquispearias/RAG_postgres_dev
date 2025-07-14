@@ -3,9 +3,9 @@ import { Example } from "./Example";
 import styles from "./Example.module.css";
 
 const DEFAULT_EXAMPLES: string[] = [
-    "Mostre abastecimentos com baixa eficiência",
-    "Qual o custo de combustível para a placa KOY8770?",
-    "Existem anomalias nos abastecimentos de 2024?",
+    "Best shoe for hiking?",
+    "Climbing gear cheaper than $30?",
+    "Waterproof camping gear?",
 ];
 
 interface Props {
