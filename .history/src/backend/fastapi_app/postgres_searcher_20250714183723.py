@@ -35,6 +35,7 @@ class PostgresSearcher:
         
         filter_clauses = []
         for f in filters:
+        for f in filters:
             # Si el filtro es un date_filter, lo manejamos de forma especial
             if 'start_date' in f.get('value', {}):
                 date_filter = f['value']

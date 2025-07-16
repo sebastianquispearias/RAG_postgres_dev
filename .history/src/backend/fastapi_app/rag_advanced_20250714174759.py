@@ -49,7 +49,7 @@ class AdvancedRAGChat(RAGChatBase):
 
             # 1. Llama a la API de OpenAI para obtener los filtros
             tools = build_search_function()
-            messages_for_llm = self.query_fewshots + history + [{"role": "user", "content": user_query}]
+            messages_for_llm = history + [{"role": "user", "content": user_query}]
 
             chat_completion = await self.openai_chat_client.chat.completions.create(
                 model=self.chat_deployment or self.chat_model,

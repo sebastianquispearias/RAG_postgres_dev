@@ -1,7 +1,7 @@
 [
     {
         "role": "user",
-        "content": "Mostre os abastecimentos do veículo ABC-1234 em março de 2024"
+        "content": "quanto o veiculo RIO3G88 gastou em fevereiro de 2025?"
     },
     {
         "role": "assistant",
@@ -12,7 +12,7 @@
                 "type": "function",
                 "function": {
                     "name": "search_database",
-                    "arguments": "{\"search_query\": \"abastecimentos\", \"placa_filter\": \"ABC-1234\", \"ano_filter\": {\"comparison_operator\": \"=\", \"value\": 2024}}"
+                    "arguments": "{\"search_query\": \"gastos de combustível\", \"placa_filter\": \"RIO3G88\", \"date_filter\": {\"start_date\": \"2025-02-01\", \"end_date\": \"2025-02-28\"}}"
                 }
             }
         ]
@@ -21,6 +21,6 @@
         "role": "tool",
         "tool_call_id": "call_1234",
         "name": "search_database",
-        "content": "{\"query\": \"abastecimentos\", \"items\": [], \"filters\": [{\"column\": \"placa\", \"operator\": \"=\", \"value\": \"ABC-1234\"}]}"
+        "content": "{\"query\": \"gastos de combustível\", \"items\": [], \"filters\": [{\"column\": \"placa\", \"operator\": \"=\", \"value\": \"RIO3G88\"}]}"
     }
 ]

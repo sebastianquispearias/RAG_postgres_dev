@@ -16,11 +16,5 @@
                 }
             }
         ]
-    },
-    {
-        "role": "tool",
-        "tool_call_id": "call_1234",
-        "name": "search_database",
-        "content": "{\"query\": \"abastecimentos\", \"items\": [], \"filters\": [{\"column\": \"placa\", \"operator\": \"=\", \"value\": \"ABC-1234\"}]}"
     }
 ]

@@ -38,7 +38,7 @@ def build_search_function() -> list[ChatCompletionToolParam]:
                             "properties": {
                                 "start_date": {"type": "string", "description": "Fecha de inicio (e.g., '2025-02-01')"},
                                 "end_date": {"type": "string", "description": "Fecha de fin (e.g., '2025-02-28')"},
-                            }                            
+                            },                            
                         },
                         
                         "ano_filter": {

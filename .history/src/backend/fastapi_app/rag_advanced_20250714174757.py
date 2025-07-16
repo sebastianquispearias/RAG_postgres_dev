@@ -19,7 +19,7 @@ from fastapi_app.query_rewriter import build_search_function, extract_search_arg
 
 class AdvancedRAGChat(RAGChatBase):
 
-    query_fewshots = json.loads(open(RAGChatBase.prompts_dir / "query_fewshots.json").read())
+        query_fewshots = json.loads(open(RAGChatBase.prompts_dir / "query_fewshots.json").read())
 
 
     def __init__(
@@ -49,7 +49,7 @@ class AdvancedRAGChat(RAGChatBase):
 
             # 1. Llama a la API de OpenAI para obtener los filtros
             tools = build_search_function()
-            messages_for_llm = self.query_fewshots + history + [{"role": "user", "content": user_query}]
+            messages_for_llm = history + [{"role": "user", "content": user_query}]
 
             chat_completion = await self.openai_chat_client.chat.completions.create(
                 model=self.chat_deployment or self.chat_model,

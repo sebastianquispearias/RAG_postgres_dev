@@ -35,20 +35,21 @@ class PostgresSearcher:
         
         filter_clauses = []
         for f in filters:
-            # Si el filtro es un date_filter, lo manejamos de forma especial
-            if 'start_date' in f.get('value', {}):
-                date_filter = f['value']
-                start_date = date_filter.get('start_date')
-                end_date = date_filter.get('end_date')
-                if start_date and end_date:
-                    filter_clauses.append(f"data BETWEEN '{start_date}' AND '{end_date}'")
-            else:
-                # Si no, es un filtro normal
-                column_name = f['column']
-                operator = f['operator']
-                value = f['value']
-                filter_value = f"'{value}'" if isinstance(value, str) else value
-                filter_clauses.append(f"{column_name} {operator} {filter_value}")
+    for f in filters:
+        # Si el filtro es un date_filter, lo manejamos de forma especial
+        if 'start_date' in f.get('value', {}):
+            date_filter = f['value']
+            start_date = date_filter.get('start_date')
+            end_date = date_filter.get('end_date')
+            if start_date and end_date:
+                filter_clauses.append(f"data BETWEEN '{start_date}' AND '{end_date}'")
+        else:
+            # Si no, es un filtro normal
+            column_name = f['column']
+            operator = f['operator']
+            value = f['value']
+            filter_value = f"'{value}'" if isinstance(value, str) else value
+            filter_clauses.append(f"{column_name} {operator} {filter_value}")
         
         filter_clause_str = " AND ".join(filter_clauses)
         

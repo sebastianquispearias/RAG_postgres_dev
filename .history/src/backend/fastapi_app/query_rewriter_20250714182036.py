@@ -34,11 +34,7 @@ def build_search_function() -> list[ChatCompletionToolParam]:
                         },
                         "date_filter": {
                             "type": "object",
-                            "description": "Filtrar resultados por un rango de fechas. Usa el formato AAAA-MM-DD.",
-                            "properties": {
-                                "start_date": {"type": "string", "description": "Fecha de inicio (e.g., '2025-02-01')"},
-                                "end_date": {"type": "string", "description": "Fecha de fin (e.g., '2025-02-28')"},
-                            }                            
+                            "description": "Filter by the exact vehicle license plate (placa).",
                         },
                         
                         "ano_filter": {

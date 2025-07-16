@@ -1,0 +1,20 @@
+[
+    {
+        "role": "user",
+        "content": "quanto o veiculo RIO3G88 gastou em fevereiro de 2025?"
+    },
+    {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+            {
+                "id": "call_1234",
+                "type": "function",
+                "function": {
+                    "name": "search_database",
+                    "arguments": "{\"search_query\": \"gastos de combustível\", \"placa_filter\": \"RIO3G88\", \"date_filter\": {\"start_date\": \"2025-02-01\", \"end_date\": \"2025-02-28\"}}"
+                }
+            }
+        ]
+    }
+]

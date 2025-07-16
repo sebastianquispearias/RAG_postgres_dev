@@ -18,10 +18,6 @@ from fastapi_app.query_rewriter import build_search_function, extract_search_arg
 
 
 class AdvancedRAGChat(RAGChatBase):
-
-    query_fewshots = json.loads(open(RAGChatBase.prompts_dir / "query_fewshots.json").read())
-
-
     def __init__(
         self,
         *,
@@ -49,7 +45,7 @@ class AdvancedRAGChat(RAGChatBase):
 
             # 1. Llama a la API de OpenAI para obtener los filtros
             tools = build_search_function()
-            messages_for_llm = self.query_fewshots + history + [{"role": "user", "content": user_query}]
+            messages_for_llm = history + [{"role": "user", "content": user_query}]
 
             chat_completion = await self.openai_chat_client.chat.completions.create(
                 model=self.chat_deployment or self.chat_model,
@@ -60,11 +56,6 @@ class AdvancedRAGChat(RAGChatBase):
 
             # 2. Extrae los argumentos y filtros
             search_query, filters = extract_search_arguments(user_query, chat_completion)
-
-            print("--- DEBUG: Plan de Búsqueda Generado ---")
-            print(f"Search Query: {search_query}")
-            print(f"Filters: {filters}")
-            print("--------------------------------------")
 
             if not search_query:
                 raise ValueError("El modelo no generó una consulta de búsqueda.")
@@ -93,6 +84,7 @@ class AdvancedRAGChat(RAGChatBase):
             
             # Prepara los mensajes para la API de OpenAI
             messages_for_llm = self.chat_params.past_messages + [{"role": "user", "content": rag_prompt}]
+            print(f"DEBUG: Guion final enviado a la IA:\n---\n{rag_prompt}\n---")
             print(f"DEBUG: Se encontraron {len(items)} resultados. Guion final enviado a la IA:\n---\n{rag_prompt}\n---")
 
             # Prepara el contexto para enviarlo al frontend
