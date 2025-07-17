@@ -75,9 +75,6 @@ def build_search_function() -> list[ChatCompletionToolParam]:
     ]
 
 def extract_search_arguments(original_user_query: str, chat_completion: ChatCompletion):
-    """
-    Parses the LLM function call arguments and returns (search_query, top_k, filters).
-    """
     response_message = chat_completion.choices[0].message
     search_query = None
     filters = []
@@ -118,7 +115,7 @@ def extract_search_arguments(original_user_query: str, chat_completion: ChatComp
                     )
     elif query_text := response_message.content:
         search_query = query_text.strip()
-    return search_query,top_k, filters
+    return search_query, filters
 
 async def rewrite_query(query: str, history: List[dict]) -> Tuple[str | None, List[dict[str, Any]]]:
     """

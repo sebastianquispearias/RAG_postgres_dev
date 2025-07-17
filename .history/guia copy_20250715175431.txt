@@ -1,0 +1,101 @@
+# ==========================
+# 1) Navegar al proyecto
+# ==========================
+PS C:\Users\User\Desktop> cd rag-postgres-openai-python
+
+
+
+# ==========================
+# 2) Activar el entorno
+# ==========================
+PS C:\Users\User\Desktop\rag-postgres-openai-python> conda activate rag_env
+
+# ==========================
+# 3) Revisar .env (opcional)
+# ==========================
+# Asegúrate de tener en la raíz un `.env` con al menos:
+# POSTGRES_HOST=...
+# POSTGRES_USERNAME=...
+# POSTGRES_PASSWORD=...
+# POSTGRES_DATABASE=...
+# Y luego (para los scripts de test_db.py):
+# PG_HOST=...
+# PG_USER=...
+# PG_PASSWORD=...
+# PG_DATABASE=...
+
+#
+# conexión a tu Azure PostgreSQL
+POSTGRES_HOST=zane-linave.postgres.database.azure.com
+POSTGRES_DATABASE=linave
+POSTGRES_USERNAME=sebastian
+POSTGRES_PASSWORD=Dtj78frWb2
+PG_PORT=5432
+POSTGRES_SSL=require
+
+# el resto de variables que ya tengas para OpenAI…
+OPENAI_CHAT_HOST=openai
+OPENAICOM_KEY=sk-…
+…
+
+# ==========================
+# 4) Instalar dependencias
+# ==========================
+PS C:\Users\User\Desktop\rag-postgres-openai-python> pip install -r src/backend/requirements.txt
+PS C:\Users\User\Desktop\rag-postgres-openai-python> pip install -e src/backend
+
+# ==========================
+# 5) Test básico de DB
+# ==========================
+PS C:\Users\User\Desktop\rag-postgres-openai-python> python scripts/test_db.py
+
+# ==========================
+# 6) Añadir columnas vectoriales (una sola vez)
+# ==========================
+PS C:\Users\User\Desktop\rag-postgres-openai-python> `
+  docker exec -i linave-local psql -U postgres -d postgres -c "ALTER TABLE public.abastecimento    ADD COLUMN embedding_3l vector(1024);" `
+  docker exec -i linave-local psql -U postgres -d postgres -c "ALTER TABLE public.manutencao      ADD COLUMN embedding_3l vector(1024);" `
+  docker exec -i linave-local psql -U postgres -d postgres -c "ALTER TABLE public.quilometragem   ADD COLUMN embedding_3l vector(1024);" `
+  docker exec -i linave-local psql -U postgres -d postgres -c "ALTER TABLE public.retorno_socorro ADD COLUMN embedding_3l vector(1024);" `
+  docker exec -i linave-local psql -U postgres -d postgres -c "ALTER TABLE public.veiculos        ADD COLUMN embedding_3l vector(1024);"
+
+# ==========================
+# 7) Crear índices HNSW (una sola vez)
+# ==========================
+PS C:\Users\User\Desktop\rag-postgres-openai-python> `
+  docker exec -i linave-local psql -U postgres -d postgres -c "CREATE INDEX ON public.abastecimento    USING hnsw (embedding_3l vector_cosine_ops) WITH (m=16, ef_construction=64);" `
+  docker exec -i linave-local psql -U postgres -d postgres -c "CREATE INDEX ON public.manutencao      USING hnsw (embedding_3l vector_cosine_ops) WITH (m=16, ef_construction=64);" `
+  docker exec -i linave-local psql -U postgres -d postgres -c "CREATE INDEX ON public.quilometragem   USING hnsw (embedding_3l vector_cosine_ops) WITH (m=16, ef_construction=64);" `
+  docker exec -i linave-local psql -U postgres -d postgres -c "CREATE INDEX ON public.retorno_socorro USING hnsw (embedding_3l vector_cosine_ops) WITH (m=16, ef_construction=64);" `
+  docker exec -i linave-local psql -U postgres -d postgres -c "CREATE INDEX ON public.veiculos        USING hnsw (embedding_3l vector_cosine_ops) WITH (m=16, ef_construction=64);"
+
+# ==========================
+# 8) Generar embeddings
+# ==========================
+PS C:\Users\User\Desktop\rag-postgres-openai-python> python scripts/generate_embeddings.py
+
+# ==========================
+# 9) Volver a verificar
+# ==========================
+PS C:\Users\User\Desktop\rag-postgres-openai-python> python scripts/test_db.py
+
+# ==========================
+# 10) Build del frontend
+# ==========================
+PS C:\Users\User\Desktop\rag-postgres-openai-python> cd src/frontend
+PS C:\Users\User\Desktop\rag-postgres-openai-python\src\frontend> npm install
+PS C:\Users\User\Desktop\rag-postgres-openai-python\src\frontend> npm run build
+PS C:\Users\User\Desktop\rag-postgres-openai-python\src\frontend> cd ../..
+
+# ==========================
+# 11) Arrancar Backend
+# ==========================
+PS C:\Users\User\Desktop\rag-postgres-openai-python> uvicorn fastapi_app:create_app --factory --reload --host 0.0.0.0 --port 8000
+
+# ==========================
+# 12) Arrancar Frontend en modo DEV
+# ==========================
+PS C:\Users\User\Desktop\rag-postgres-openai-python> cd src/frontend
+PS C:\Users\User\Desktop\rag-postgres-openai-python\src\frontend> npm run dev
+# → Abrir http://127.0.0.1:5173/ en tu navegador
+

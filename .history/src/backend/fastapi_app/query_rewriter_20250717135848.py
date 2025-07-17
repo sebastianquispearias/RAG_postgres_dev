@@ -140,7 +140,7 @@ async def rewrite_query(query: str, history: List[dict]) -> Tuple[str | None, Li
     chat_completion = await client.chat.completions.create(
         model=model_name, # <-- CORREGIDO
         messages=messages,
-        tools=tools,
+        tools=tools,git check
         tool_choice="auto",
     )
     print(f"DEBUG: Respuesta completa de OpenAI:\n{chat_completion.model_dump_json(indent=2)}")

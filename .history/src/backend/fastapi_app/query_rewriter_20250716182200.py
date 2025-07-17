@@ -24,10 +24,6 @@ def build_search_function() -> list[ChatCompletionToolParam]:
                             "type": "string",
                             "description": "A semantic search query. For example: 'efficient urban bus'",
                         },
-                        "top_k": {
-                            "type": "integer",
-                            "description": "Number of top results to return."
-                        },
                         "id_veiculo_filter": {
                             "type": "string",
                             "description": "Filter by the exact vehicle ID (id_veiculo).",
@@ -75,14 +71,9 @@ def build_search_function() -> list[ChatCompletionToolParam]:
     ]
 
 def extract_search_arguments(original_user_query: str, chat_completion: ChatCompletion):
-    """
-    Parses the LLM function call arguments and returns (search_query, top_k, filters).
-    """
     response_message = chat_completion.choices[0].message
     search_query = None
     filters = []
-    top_k: int = 10
-
     if response_message.tool_calls:
         for tool in response_message.tool_calls:
             if tool.type != "function":
@@ -90,11 +81,10 @@ def extract_search_arguments(original_user_query: str, chat_completion: ChatComp
             function = tool.function
             if function.name == "search_database":
                 arg = json.loads(function.arguments)
-                print("DEBUG >> argumentos crudos del LLM:", arg)
+                print("DEBUG >> argumentos crudos del LLM:", args)
                 # Even though its required, search_query is not always specified
                 search_query = arg.get("search_query", original_user_query)
-                top_k = int(arg.get("top_k", top_k))
-                
+
                 if "id_veiculo_filter" in arg and arg["id_veiculo_filter"]:
                     filters.append({"column": "id_veiculo", "operator": "=", "value": arg["id_veiculo_filter"]})
 
@@ -118,7 +108,7 @@ def extract_search_arguments(original_user_query: str, chat_completion: ChatComp
                     )
     elif query_text := response_message.content:
         search_query = query_text.strip()
-    return search_query,top_k, filters
+    return search_query, filters
 
 async def rewrite_query(query: str, history: List[dict]) -> Tuple[str | None, List[dict[str, Any]]]:
     """

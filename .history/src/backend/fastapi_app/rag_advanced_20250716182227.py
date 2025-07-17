@@ -69,7 +69,6 @@ class AdvancedRAGChat(RAGChatBase):
             if not search_query:
                 raise ValueError("El modelo no generó una consulta de búsqueda.")
             
-            print(f"DEBUG >> voy a llamar a search_and_embed con top={top_k} y filters={filters}")
             # 3. Busca en la base de datos (devuelve objetos de base de datos)
             search_results = await self.searcher.search_and_embed(
                 search_query,

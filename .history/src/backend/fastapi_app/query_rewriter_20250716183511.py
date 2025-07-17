@@ -118,7 +118,7 @@ def extract_search_arguments(original_user_query: str, chat_completion: ChatComp
                     )
     elif query_text := response_message.content:
         search_query = query_text.strip()
-    return search_query,top_k, filters
+    return search_query, filters
 
 async def rewrite_query(query: str, history: List[dict]) -> Tuple[str | None, List[dict[str, Any]]]:
     """
