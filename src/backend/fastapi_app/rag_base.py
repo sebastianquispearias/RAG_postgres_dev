@@ -38,10 +38,11 @@ class RAGChatBase:
             for i, result in enumerate(results, 1):
                 sources += (
                     f"[doc{i}]\n"
+                    f"ID Veículo: {result.id_veiculo}\n"
                     f"Placa: {result.placa}\n"
-                    f"Fecha: {result.data}\n"
-                    f"Costo Combustible: {result.custo_combustivel}\n"
-                    f"Eficiencia: {result.km_diesel}\n\n"
+                    f"Data: {result.data}\n"
+                    f"Custo Combustível: {result.custo_combustivel}\n"
+                    f"Consumo km/lt: {result.km_diesel}\n\n"
                 )
             # Usamos el nuevo prompt que incluye los placeholders {sources} y {query}
             return self.answer_prompt_template.format(sources=sources, query=query)
