@@ -54,7 +54,7 @@ param openAILocation string
 param openAIResourceGroupName string = ''
 
 @description('Whether to deploy Azure OpenAI resources')
-param deployAzureOpenAI bool = true
+param deployAzureOpenAI bool = false
 
 @allowed([
   'azure'
