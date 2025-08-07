@@ -151,3 +151,7 @@ static/
 test-results/
 # No versionar historial automático de VSCode
 .history/
+
+# secretos locales
+.env_azure
+setup_env.sh
