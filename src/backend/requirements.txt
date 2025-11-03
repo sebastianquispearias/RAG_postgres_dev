@@ -30,7 +30,7 @@ azure-core==1.32.0
     #   azure-monitor-opentelemetry
     #   azure-monitor-opentelemetry-exporter
     #   msrest
-azure-core-tracing-opentelemetry==1.0.0b11
+azure-core-tracing-opentelemetry==1.0.0b12
     # via azure-monitor-opentelemetry
 azure-identity==1.19.0
     # via fastapi-app (pyproject.toml)
